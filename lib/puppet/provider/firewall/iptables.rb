@@ -258,14 +258,19 @@ Puppet::Type.type(:firewall).provide :iptables, :parent => Puppet::Provider::Fir
     # command operator which will start with a - and append a " to the
     # preceeding segment of the array
     #
-    # This will probably barf if there is a comment that includes a -X in it
-    #
-    # It might make sense to iterate over the @resource_map here
-    #
-    # I'm not positive if the comment allows a - in it either
-    #
-    # Going to test/confirm that this fixes the issue, then look into iterating over
-    # the @resource_map if - is allowed in the comment
+    # Construct a new hash based on @resource_map that lists all
+    # of the known possible segments to end a comment
+    end_of_comment_hash = {
+      :module_start => '-m',
+      :destination_start => '-d',
+      :iniface_start => '-i',
+      :jump_start => '-j',
+      :outiniface_start => '-o',
+      :proto_start => '-p',
+      :source_start => '-s',
+      :table_start => '-t'
+    }
+
     tmp_line.each do |line_segment|
       if found_comment_start and line_segment=~ /^"/
           found_comment_start = false
@@ -284,7 +289,13 @@ Puppet::Type.type(:firewall).provide :iptables, :parent => Puppet::Provider::Fir
           found_comment_start = true
           found_comment_index = counter
       end
-      if found_comment_start and not found_comment_end and set_comment_start and line_segment=~/^-/
+
+      # Check if the line segment is known to be a
+      # valid start of a new iptables param and append a "
+      # to the end of the previous element
+      if found_comment_start and not found_comment_end \
+        and set_comment_start \
+        and end_of_comment_hash.has_value?(line_segment)
           # Confirm that we've set the start flag
           # We've confirmed that we're at the end of the comment
           line[counter - 1] = line[counter - 1] + '"'
